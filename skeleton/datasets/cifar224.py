@@ -18,7 +18,7 @@ class Cifar224:
         assert num_classes in [10, 100]
 
         dataset = tv.datasets.CIFAR10 if num_classes == 10 else tv.datasets.CIFAR100
-        data_shape = [(batch_size, 3, 32, 32), (batch_size, 10 if num_classes == 10 else 100)]
+        data_shape = [(batch_size, 3, 224, 224), (batch_size, 1)]
 
         transform_train = tv.transforms.Compose([
             tv.transforms.RandomResizedCrop(224),
