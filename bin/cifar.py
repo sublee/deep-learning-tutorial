@@ -77,10 +77,30 @@ def main(args):
                          epoch, args.epoch, batch_idx + 1, len(train_loader), float(loss))
 
         with torch.no_grad():
-            losses = [float(F.cross_entropy(model(inputs), targets.to(device)))
-                      for inputs, targets in valid_loader]
+            losses = []
+
+            total = 0
+            correct = 0
+
+            for inputs, targets in valid_loader:
+                targets = targets.to(device)
+
+                outputs = model(inputs)
+
+                # loss
+                loss = float(F.cross_entropy(outputs, targets))
+                losses.append(loss)
+
+                # accuracy
+                _, predicted = torch.max(outputs.data, 1)
+                total += targets.size(0)
+                correct += (predicted == targets).sum().item()
+
             loss = np.average(losses)
-            logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f', epoch, args.epoch, loss)
+            accuracy = correct / total
+
+            logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f, accuracy: %.1f%%',
+                         epoch, args.epoch, loss, accuracy * 100)
 
 
 if __name__ == '__main__':
