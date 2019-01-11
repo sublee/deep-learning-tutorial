@@ -13,39 +13,6 @@ sys.path.append(base_dir)
 import skeleton
 
 
-class BasicNet(skeleton.nn.modules.IOModule, skeleton.nn.modules.MoveToModule):
-    def __init__(self, num_classes=10):
-        super(BasicNet, self).__init__()
-        self.layers = torch.nn.ModuleDict([
-            ('conv1', nn.Sequential(
-                torch.nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False),
-                torch.nn.ReLU(),
-                torch.nn.BatchNorm2d(64),
-            )),
-            ('conv2', nn.Sequential(
-                torch.nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-                torch.nn.ReLU(),
-                torch.nn.BatchNorm2d(128),
-            )),
-            ('conv3', nn.Sequential(
-                torch.nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-                torch.nn.ReLU(),
-                torch.nn.BatchNorm2d(256),
-            )),
-            ('global_pool', skeleton.nn.GlobalPool()),
-            ('linear', nn.Sequential(skeleton.nn.Flatten(), nn.Linear(256, num_classes))),
-        ])
-
-    def forward(self, x, verbose=False):  # pylint: disable=arguments-differ
-        if verbose:
-            print('%20s shape after %s' % (list(x.size()), 'inputs'))
-        for name, layer in self.layers.items():
-            x = layer.forward(x)
-            if verbose:
-                print('%20s shape after %s' % (list(x.size()), name))
-        return x
-
-
 def main(args):
     logging.info('args: %s', args)
     device = torch.device('cuda', 0) if torch.cuda.is_available() else torch.device('cpu', 0)
