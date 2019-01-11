@@ -3,6 +3,7 @@ import os
 import sys
 import logging
 
+from tensorboardX import SummaryWriter
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -34,6 +35,9 @@ def main(args):
     # Enable data parallelism.
     model = nn.DataParallel(model)
 
+    # Integrate with TensorBoard.
+    tb = SummaryWriter()
+
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9)
 
     for epoch in range(args.epoch):
@@ -44,8 +48,11 @@ def main(args):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+
             logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
                          epoch, args.epoch, batch_idx + 1, len(train_loader), float(loss))
+
+            tb.add_scalar('loss/train', float(loss))
 
         with torch.no_grad():
             losses = []
@@ -72,6 +79,9 @@ def main(args):
 
             logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f, accuracy: %.1f%%',
                          epoch, args.epoch, loss, accuracy * 100)
+
+            tb.add_scalar('loss/valid', loss)
+            tb.add_scalar('accuracy', accuracy)
 
 
 if __name__ == '__main__':
