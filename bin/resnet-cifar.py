@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
 import os
 import sys
 import logging
@@ -14,6 +15,13 @@ sys.path.append(base_dir)
 
 from skeleton.resnet import ResNet
 from skeleton.datasets import Cifar224
+
+
+def correct_total(outputs, targets):
+    _, predicted = torch.max(outputs.data, 1)
+    correct = (predicted == targets).sum().item()
+    total = targets.size(0)
+    return (correct, total)
 
 
 def main(args):
@@ -36,7 +44,9 @@ def main(args):
     model = nn.DataParallel(model)
 
     # Integrate with TensorBoard.
-    tb = SummaryWriter()
+    run_name = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    tb_train = SummaryWriter('runs/%s/train' % run_name)
+    tb_valid = SummaryWriter('runs/%s/train' % run_name)
     global_step = 0
 
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9)
@@ -50,17 +60,21 @@ def main(args):
             optimizer.step()
             optimizer.zero_grad()
 
+            correct, total = correct_total(outputs, targets)
+            accuracy = correct / total
+
             logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
                          epoch, args.epoch, batch_idx + 1, len(train_loader), float(loss))
 
             global_step += 1
-            tb.add_scalar('loss/train', float(loss), global_step)
+            tb_train.add_scalar('loss', float(loss), global_step)
+            tb_train.add_scalar('accuracy', accuracy, global_step)
 
         with torch.no_grad():
             losses = []
 
-            total = 0
             correct = 0
+            total = 0
 
             for inputs, targets in valid_loader:
                 targets = targets.to(device)
@@ -72,9 +86,9 @@ def main(args):
                 losses.append(loss)
 
                 # accuracy
-                _, predicted = torch.max(outputs.data, 1)
-                total += targets.size(0)
-                correct += (predicted == targets).sum().item()
+                correct_, total_ = correct_total(outputs, targets)
+                correct += correct_
+                total += total_
 
             loss = np.average(losses)
             accuracy = correct / total
@@ -82,8 +96,8 @@ def main(args):
             logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f, accuracy: %.1f%%',
                          epoch, args.epoch, loss, accuracy * 100)
 
-            tb.add_scalar('loss/valid', loss, global_step)
-            tb.add_scalar('accuracy', accuracy, global_step)
+            tb_valid.add_scalar('loss', float(loss), global_step)
+            tb_valid.add_scalar('accuracy', accuracy, global_step)
 
 
 if __name__ == '__main__':
