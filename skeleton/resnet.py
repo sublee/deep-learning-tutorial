@@ -27,7 +27,7 @@ class ResNet(IOModule, MoveToModule):
 
         # final layers
         self.gap = GlobalPool()
-        self.fc = nn.Sequential([Flatten(), nn.Linear(in_features=2048, out_features=num_classes)])
+        self.fc = nn.Sequential(Flatten(), nn.Linear(in_features=2048, out_features=num_classes))
 
     def forward(self, x, verbose=False):  # pylint: disable=arguments-differ
         if verbose:
