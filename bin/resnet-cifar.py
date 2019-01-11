@@ -10,7 +10,9 @@ import numpy as np
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_dir)
-import skeleton
+
+from skeleton.resnet import ResNet
+from skeleton.datasets import Cifar224
 
 
 def main(args):
@@ -18,10 +20,10 @@ def main(args):
     device = torch.device('cuda', 0) if torch.cuda.is_available() else torch.device('cpu', 0)
 
     batch_size = args.batch
-    train_loader, valid_loader, test_loader, data_shape = skeleton.datasets.Cifar.loader(batch_size, args.num_class)
+    train_loader, valid_loader, test_loader, data_shape = Cifar224.loader(batch_size, args.num_class)
     _ = test_loader
 
-    model = BasicNet(args.num_class)
+    model = ResNet(args.num_class)
 
     # Print layer shapes.
     with torch.no_grad():
