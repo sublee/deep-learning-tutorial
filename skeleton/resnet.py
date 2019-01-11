@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 from torch import nn
 
-from skeleton.nn.modules import Flatten, GlobalPool, IOModule, MoveToModule
+from skeleton.nn.modules import Flatten, GlobalPool, IOModule
 
 
 __all__ = ['ResNet']
 
 
-class ResNet(IOModule, MoveToModule):
+class ResNet(IOModule):
 
     def __init__(self, num_classes=10):
         super().__init__()

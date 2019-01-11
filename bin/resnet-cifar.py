@@ -24,21 +24,24 @@ def main(args):
     _ = test_loader
 
     model = ResNet(args.num_class)
+    model.to(device=device)
 
     # Print layer shapes.
+    canary = torch.Tensor(*data_shape[0]).to(device)
     with torch.no_grad():
-        model(torch.Tensor(*data_shape[0]), verbose=True)
+        model(canary, verbose=True)
 
     # Enable data parallelism.
     model = nn.DataParallel(model)
-    model.to(device=device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9)
 
     for epoch in range(args.epoch):
         for batch_idx, (inputs, targets) in enumerate(train_loader):
+            inputs, targets = inputs.to(device), targets.to(device)
+
             logits = model(inputs)
-            loss = F.cross_entropy(logits, targets.to(device))
+            loss = F.cross_entropy(logits, targets)
 
             loss.backward()
             optimizer.step()
@@ -53,7 +56,7 @@ def main(args):
             correct = 0
 
             for inputs, targets in valid_loader:
-                targets = targets.to(device)
+                inputs, targets = inputs.to(device), targets.to(device)
 
                 outputs = model(inputs)
 
