@@ -54,10 +54,14 @@ def main(args):
     train_loader, valid_loader, data_shape = skeleton.datasets.Cifar.loader(batch_size, args.num_class)
 
     model = BasicNet(args.num_class)
+
+    # Print layer shapes.
+    with torch.no_grad():
+        model(torch.Tensor(*data_shape[0]), verbose=True)
+
+    # Enable data parallelism.
     model = nn.DataParallel(model)
     model.to(device=device)
-
-    model(torch.Tensor(*data_shape[0]), verbose=True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9)
 
