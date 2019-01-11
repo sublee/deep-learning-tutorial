@@ -64,7 +64,7 @@ def main(args):
     for epoch in range(args.epoch):
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             logits = model(inputs)
-            loss = F.cross_entropy(logits, targets)
+            loss = F.cross_entropy(logits, targets.to(device))
 
             loss.backward()
             optimizer.step()
@@ -72,7 +72,8 @@ def main(args):
             logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f', epoch, args.epoch, batch_idx, len(train_loader), float(loss))
 
         with torch.no_grad():
-            losses = [float(F.cross_entropy(model(inputs), targets)) for inputs, targets in valid_loader]
+            losses = [float(F.cross_entropy(model(inputs), targets.to(device)))
+                      for inputs, targets in valid_loader]
             loss = np.average(losses)
             logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f', epoch, args.epoch, loss)
 
