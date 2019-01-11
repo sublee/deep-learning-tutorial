@@ -73,7 +73,8 @@ def main(args):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f', epoch, args.epoch, batch_idx, len(train_loader), float(loss))
+            logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
+                         epoch, args.epoch, batch_idx + 1, len(train_loader), float(loss))
 
         with torch.no_grad():
             losses = [float(F.cross_entropy(model(inputs), targets.to(device)))
