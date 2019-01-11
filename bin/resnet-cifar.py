@@ -37,6 +37,7 @@ def main(args):
 
     # Integrate with TensorBoard.
     tb = SummaryWriter()
+    global_step = 0
 
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9)
 
@@ -52,7 +53,8 @@ def main(args):
             logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
                          epoch, args.epoch, batch_idx + 1, len(train_loader), float(loss))
 
-            tb.add_scalar('loss/train', float(loss))
+            global_step += 1
+            tb.add_scalar('loss/train', float(loss), global_step)
 
         with torch.no_grad():
             losses = []
@@ -80,8 +82,8 @@ def main(args):
             logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f, accuracy: %.1f%%',
                          epoch, args.epoch, loss, accuracy * 100)
 
-            tb.add_scalar('loss/valid', loss)
-            tb.add_scalar('accuracy', accuracy)
+            tb.add_scalar('loss/valid', loss, global_step)
+            tb.add_scalar('accuracy', accuracy, global_step)
 
 
 if __name__ == '__main__':
