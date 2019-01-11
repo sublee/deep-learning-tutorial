@@ -38,10 +38,8 @@ def main(args):
 
     for epoch in range(args.epoch):
         for batch_idx, (inputs, targets) in enumerate(train_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
-
             logits = model(inputs)
-            loss = F.cross_entropy(logits, targets)
+            loss = F.cross_entropy(logits, targets.to(device))
 
             loss.backward()
             optimizer.step()
@@ -56,7 +54,7 @@ def main(args):
             correct = 0
 
             for inputs, targets in valid_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
+                targets = targets.to(device)
 
                 outputs = model(inputs)
 
