@@ -46,7 +46,7 @@ def main(args):
     # Integrate with TensorBoard.
     run_name = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     tb_train = SummaryWriter('runs/%s/train' % run_name)
-    tb_valid = SummaryWriter('runs/%s/train' % run_name)
+    tb_valid = SummaryWriter('runs/%s/valid' % run_name)
     global_step = 0
 
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9)
