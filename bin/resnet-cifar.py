@@ -13,7 +13,7 @@ import numpy as np
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_dir)
 
-from skeleton.resnet import ResNet
+from skeleton.resnet import ResNet50
 from skeleton.datasets import Cifar224
 
 
@@ -32,7 +32,7 @@ def main(args):
     train_loader, valid_loader, test_loader, data_shape = Cifar224.loader(batch_size, args.num_class)
     _ = test_loader
 
-    model = ResNet(args.num_class)
+    model = ResNet50(args.num_class)
     model.to(device=device)
 
     # Print layer shapes.

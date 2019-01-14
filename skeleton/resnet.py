@@ -4,16 +4,16 @@ from torch import nn
 from skeleton.nn.modules import Flatten, GlobalPool, IOModule
 
 
-__all__ = ['ResNet']
+__all__ = ['ResNet50']
 
 
-class ResNet(IOModule):
+class ResNet50(IOModule):
 
     def __init__(self, num_classes=10):
         super().__init__()
 
         # the first simple convolution layer
-        self.conv1 = nn.Sequential(
+        self.layer1 = nn.Sequential(
             # The input size should be (n, 3, 224, 224).
             nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm2d(64),
@@ -22,10 +22,10 @@ class ResNet(IOModule):
         )
 
         # resedual blocks
-        self.conv2 = ResedualBlock(in_channels=64, mid_channels=64, out_channels=256, stride=1, repeat=3)
-        self.conv3 = ResedualBlock(in_channels=256, mid_channels=128, out_channels=512, stride=2, repeat=4)
-        self.conv4 = ResedualBlock(in_channels=512, mid_channels=256, out_channels=1024, stride=2, repeat=6)
-        self.conv5 = ResedualBlock(in_channels=1024, mid_channels=512, out_channels=2048, stride=2, repeat=3)
+        self.layer2 = ResedualBlock(in_channels=64, mid_channels=64, out_channels=256, stride=1, repeat=3)
+        self.layer3 = ResedualBlock(in_channels=256, mid_channels=128, out_channels=512, stride=2, repeat=4)
+        self.layer4 = ResedualBlock(in_channels=512, mid_channels=256, out_channels=1024, stride=2, repeat=6)
+        self.layer5 = ResedualBlock(in_channels=1024, mid_channels=512, out_channels=2048, stride=2, repeat=3)
 
         # final layers
         self.gap = GlobalPool()
@@ -41,45 +41,63 @@ class ResNet(IOModule):
         return x
 
 
-class ResedualBlock(nn.Module):
+class ResedualBlock(nn.Sequential):
 
     def __init__(self, in_channels: int, mid_channels: int, out_channels: int, stride: int, repeat: int):
+        blocks = []
+        blocks.append(Bottleneck(in_channels, mid_channels, out_channels, stride))
+
+        for _ in range(1, repeat):
+            blocks.append(Bottleneck(out_channels, mid_channels, out_channels, 1))
+
+        super().__init__(*blocks)
+
+
+class Bottleneck(nn.Module):
+
+    def __init__(self, in_channels: int, mid_channels: int, out_channels: int, stride: int):
         super().__init__()
-        self.blocks = nn.ModuleList()
 
-        for i in range(repeat):
-            block = nn.ModuleDict({
-                'body': nn.Sequential(
-                    nn.Conv2d(in_channels, mid_channels, kernel_size=1),
-                    nn.BatchNorm2d(mid_channels),
-                    nn.ReLU(),
+        # layer 1: in->mid
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(in_channels, mid_channels, kernel_size=1),
+            nn.BatchNorm2d(mid_channels),
+            nn.ReLU(),
+        )
 
-                    nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=(stride if i == 0 else 1), padding=1),
-                    nn.BatchNorm2d(mid_channels),
-                    nn.ReLU(),
+        # layer 2: mid->mid with stride
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=stride, padding=1),
+            nn.BatchNorm2d(mid_channels),
+            nn.ReLU(),
+        )
 
-                    nn.Conv2d(mid_channels, out_channels, kernel_size=1),
-                    nn.BatchNorm2d(out_channels),
-                ),
-                'relu': nn.ReLU(),
-            })
+        # layer 3: mid->out with a shortcut connection
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(mid_channels, out_channels, kernel_size=1),
+            nn.BatchNorm2d(out_channels),
+        )
 
-            if i == 0 and in_channels != out_channels:
-                block['downsample'] = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
+        if stride != 1 or in_channels != out_channels:
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride),
+                nn.BatchNorm2d(out_channels),
+            )
+        else:
+            self.downsample = None
 
-            self.blocks.append(block)
-
-            in_channels = out_channels
+        self.layer3_relu = nn.ReLU()
 
     def forward(self, x):  # pylint: disable=arguments-differ
-        for i, block in enumerate(self.blocks):
-            x_keep = x
+        x_keep = x
 
-            x = block['body'](x)
+        x = self.layer1(x)
+        x = self.layer2(x)
 
-            if i == 0 and 'downsample' in block:
-                x_keep = block['downsample'](x_keep)
-            x += x_keep
+        x = self.layer3(x)
+        if self.downsample is not None:
+            x_keep = self.downsample(x_keep)
+        x += x_keep
+        x = self.layer3_relu(x)
 
-            x = block['relu'](x)
         return x
