@@ -68,7 +68,7 @@ def main(args):
             accuracy = correct / total
 
             logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
-                         epoch, args.epoch, batch_idx + 1, len(train_loader), float(loss))
+                         epoch + 1, args.epoch, batch_idx + 1, len(train_loader), float(loss))
 
             global_step += 1
             tb_train.add_scalar('loss', float(loss), global_step)
