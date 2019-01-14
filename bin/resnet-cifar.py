@@ -96,7 +96,7 @@ def main(args):
             accuracy = correct / total
 
             logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f, accuracy: %.1f%%',
-                         epoch, args.epoch, loss, accuracy * 100)
+                         epoch + 1, args.epoch, loss, accuracy * 100)
 
             tb_valid.add_scalar('loss', float(loss), global_step)
             tb_valid.add_scalar('accuracy', accuracy, global_step)
