@@ -45,6 +45,8 @@ def main(args):
 
     # Integrate with TensorBoard.
     run_name = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    if args.run:
+        run_name += '_' + args.run
     tb_train = SummaryWriter('runs/%s/train' % run_name)
     tb_valid = SummaryWriter('runs/%s/valid' % run_name)
     global_step = 0
@@ -109,6 +111,8 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--num-class', type=int, default=10, help='10 or 100')
     parser.add_argument('-b', '--batch', type=int, default=128)
     parser.add_argument('-e', '--epoch', type=int, default=25)
+
+    parser.add_argument('--run', type=str, default='')
 
     parser.add_argument('--gpus', type=int, default=torch.cuda.device_count())
 
