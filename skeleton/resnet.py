@@ -62,7 +62,7 @@ class ResedualBlock(nn.Module):
                 'relu': nn.ReLU(),
             })
 
-            if i == 0:
+            if i == 0 and in_channels != out_channels:
                 block['down_sample'] = nn.Conv2d(in_channels, out_channels, stride=stride, kernel_size=1)
 
             self.blocks.append(block)
@@ -75,7 +75,7 @@ class ResedualBlock(nn.Module):
 
             x = block['body'](x)
 
-            if i == 0:
+            if i == 0 and 'down_sample' in block:
                 x_keep = block['down_sample'](x_keep)
             x += x_keep
 
