@@ -51,9 +51,11 @@ def main(args):
     tb_valid = SummaryWriter('runs/%s/valid' % run_name)
     global_step = 0
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9, weight_decay=0.0001)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     for epoch in range(args.epoch):
+        # train
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             targets = targets.to(device)
 
@@ -74,6 +76,7 @@ def main(args):
             tb_train.add_scalar('loss', float(loss), global_step)
             tb_train.add_scalar('accuracy', accuracy, global_step)
 
+        # validate
         with torch.no_grad():
             losses = []
 
@@ -102,6 +105,9 @@ def main(args):
 
             tb_valid.add_scalar('loss', float(loss), global_step)
             tb_valid.add_scalar('accuracy', accuracy, global_step)
+
+        # adjust LR by validation loss
+        scheduler.step(loss)
 
 
 if __name__ == '__main__':
