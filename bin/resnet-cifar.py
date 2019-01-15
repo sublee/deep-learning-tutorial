@@ -55,6 +55,14 @@ def main(args):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     for epoch in range(args.epoch):
+        # log LR
+        for param_group in optimizer.param_groups:
+            try:
+                lr = param_group['lr']
+            except KeyError:
+                continue
+            tb_train.add_scalar('lr', lr, global_step)
+
         # train
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             targets = targets.to(device)
