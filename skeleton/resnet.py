@@ -21,11 +21,11 @@ class ResNet50(IOModule):
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
 
-        # resedual blocks
-        self.layer2 = ResedualBlock(in_channels=64, mid_channels=64, out_channels=256, stride=1, repeat=3)
-        self.layer3 = ResedualBlock(in_channels=256, mid_channels=128, out_channels=512, stride=2, repeat=4)
-        self.layer4 = ResedualBlock(in_channels=512, mid_channels=256, out_channels=1024, stride=2, repeat=6)
-        self.layer5 = ResedualBlock(in_channels=1024, mid_channels=512, out_channels=2048, stride=2, repeat=3)
+        # residual blocks
+        self.layer2 = ResidualBlock(in_channels=64, mid_channels=64, out_channels=256, stride=1, repeat=3)
+        self.layer3 = ResidualBlock(in_channels=256, mid_channels=128, out_channels=512, stride=2, repeat=4)
+        self.layer4 = ResidualBlock(in_channels=512, mid_channels=256, out_channels=1024, stride=2, repeat=6)
+        self.layer5 = ResidualBlock(in_channels=1024, mid_channels=512, out_channels=2048, stride=2, repeat=3)
 
         # final layers
         self.gap = GlobalPool()
@@ -41,7 +41,7 @@ class ResNet50(IOModule):
         return x
 
 
-class ResedualBlock(nn.Sequential):
+class ResidualBlock(nn.Sequential):
 
     def __init__(self, in_channels: int, mid_channels: int, out_channels: int, stride: int, repeat: int):
         blocks = []
