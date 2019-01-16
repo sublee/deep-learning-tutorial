@@ -79,12 +79,14 @@ class Bottleneck(nn.Module):
         )
 
         if stride != 1 or in_channels != out_channels:
-            self.downsample = nn.Sequential(
+            downsample = [
                 nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(out_channels),
-            )
+            ]
         else:
-            self.downsample = None
+            # nothing to downsample
+            downsample = []
+        self.downsample = nn.Sequential(*downsample)
 
         self.layer3_relu = nn.ReLU()
 
@@ -95,9 +97,7 @@ class Bottleneck(nn.Module):
         x = self.layer2(x)
 
         x = self.layer3(x)
-        if self.downsample is not None:
-            x_keep = self.downsample(x_keep)
-        x += x_keep
+        x += self.downsample(x_keep)
         x = self.layer3_relu(x)
 
         return x
