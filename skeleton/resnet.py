@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import math
+
 from torch import nn
 
 from skeleton.nn.modules import Flatten, GlobalPool, IOModule
@@ -30,6 +32,22 @@ class ResNet50(IOModule):
         # final layers
         self.gap = GlobalPool()
         self.fc = nn.Sequential(Flatten(), nn.Linear(in_features=2048, out_features=num_classes))
+
+        # init weight (He initialization)
+        self.apply(self._init_weight)
+
+    @staticmethod
+    def _init_weight(m):
+        """Initializes weight with the He initialization."""
+        if isinstance(m, nn.Conv2d):
+            n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            m.weight.data.normal_(0, math.sqrt(2. / n))
+            return
+
+        if isinstance(m, nn.BatchNorm2d):
+            m.weight.data.fill_(1)
+            m.bias.data.zero_()
+            return
 
     def forward(self, x, verbose=False):  # pylint: disable=arguments-differ
         if verbose:
