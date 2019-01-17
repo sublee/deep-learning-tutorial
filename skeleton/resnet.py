@@ -10,6 +10,9 @@ __all__ = ['ResNet50']
 
 
 class ResNet50(IOModule):
+    """ResNet-50 in `Deep Residual Learning for Image Recognition by Microsoft
+    Research <https://arxiv.org/abs/1512.03385>`_.
+    """
 
     def __init__(self, num_classes=10):
         super().__init__()
@@ -50,6 +53,9 @@ class ResNet50(IOModule):
             return
 
     def forward(self, x, verbose=False):  # pylint: disable=arguments-differ
+        """
+        :param verbose: If ``True``, prints shape of input after each child layers.
+        """
         if verbose:
             print('%20s shape after %s' % (list(x.size()), 'inputs'))
         for name, layer in self.named_children():
@@ -72,6 +78,8 @@ class ResidualBlock(nn.Sequential):
 
 
 class Bottleneck(nn.Module):
+    """A bottleneck building block in ResNet. It is used for ResNet-50/101/152.
+    """
 
     def __init__(self, in_channels: int, mid_channels: int, out_channels: int, stride: int):
         super().__init__()
