@@ -44,9 +44,9 @@ def main(args):
     model = nn.DataParallel(model)
 
     # Integrate with TensorBoard.
-    run_name = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    run_name = datetime.now().strftime('%m-%d/%H:%M')
     if args.run:
-        run_name += '_' + args.run
+        run_name += ' ' + args.run
     tb_train = SummaryWriter('runs/%s/train' % run_name)
     tb_valid = SummaryWriter('runs/%s/valid' % run_name)
     global_step = 0
