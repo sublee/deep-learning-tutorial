@@ -14,7 +14,7 @@ base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_dir)
 
 from skeleton.resnet import ResNet50
-from skeleton.datasets import Cifar224
+from skeleton.datasets import Imagenet
 
 
 def correct_total(outputs, targets):
@@ -29,10 +29,9 @@ def main(args):
     device = torch.device('cuda', 0) if torch.cuda.is_available() else torch.device('cpu', 0)
 
     batch_size = args.batch
-    train_loader, valid_loader, test_loader, data_shape = Cifar224.loader(batch_size, args.num_class)
-    _ = test_loader
+    train_loader, valid_loader, data_shape = Imagenet.loader(batch_size)
 
-    model = ResNet50(args.num_class)
+    model = ResNet50(1000)
     model.to(device=device)
 
     # Print layer shapes.
@@ -51,7 +50,7 @@ def main(args):
     tb_valid = SummaryWriter('runs/%s/valid' % run_name)
     global_step = 0
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9, weight_decay=0.0001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     for epoch in range(args.epoch):
@@ -122,7 +121,6 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--num-class', type=int, default=10, help='10 or 100')
     parser.add_argument('-b', '--batch', type=int, default=128)
     parser.add_argument('-e', '--epoch', type=int, default=25)
 
