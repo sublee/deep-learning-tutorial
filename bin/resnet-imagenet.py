@@ -50,7 +50,7 @@ def main(args):
     tb_valid = SummaryWriter('runs/%s/valid' % run_name)
     global_step = 0
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9, weight_decay=0.0001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=4e-4 * batch_size, momentum=0.9, weight_decay=0.0001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     for epoch in range(args.epoch):
