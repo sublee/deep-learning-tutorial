@@ -29,7 +29,7 @@ def main(args):
     device = torch.device('cuda', 0) if torch.cuda.is_available() else torch.device('cpu', 0)
 
     batch_size = args.batch
-    train_loader, valid_loader, data_shape = Imagenet.loader(batch_size)
+    train_loader, valid_loader, data_shape = Imagenet.loader(batch_size, num_workers=12)
 
     model = ResNet50(1000)
     model.to(device=device)
