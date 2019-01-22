@@ -94,6 +94,8 @@ def main(args):
     global_step = 0
 
     for epoch in range(args.epoch):
+        train_sampler.set_epoch(epoch)
+
         # log LR
         for param_group in optimizer.param_groups:
             try:
