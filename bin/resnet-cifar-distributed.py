@@ -60,6 +60,7 @@ def main(args):
     rank = init_process_group()
 
     device = torch.device('cuda', args.local_rank)
+    torch.cuda.set_device(device)
 
     batch_size = args.batch
     local_batch_size = batch_size // torch.distributed.get_world_size()
