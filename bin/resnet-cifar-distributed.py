@@ -78,9 +78,9 @@ def main(args):
     # Integrate with TensorBoard.
     tb_class = SummaryWriter if rank == 0 else Noop
 
-    run_name = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    run_name = datetime.now().strftime('%m-%d/%H:%M')
     if args.run:
-        run_name += '_' + args.run
+        run_name += ' ' + args.run
     tb_train = tb_class(os.path.join(args.run_dir, run_name, 'train'))
     tb_valid = tb_class(os.path.join(args.run_dir, run_name, 'valid'))
 
