@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
+import logging
 import os
 import sys
-import logging
+import time
 
 from tensorboardX import SummaryWriter
 import torch
 from torch import nn
+import torch.distributed as dist
 from torch.nn import functional as F
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 import numpy as np
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,6 +21,9 @@ from skeleton.resnet import ResNet50
 from skeleton.datasets import Cifar224
 
 
+assert torch.cuda.is_available()
+
+
 def correct_total(outputs, targets):
     _, predicted = torch.max(outputs.data, 1)
     correct = (predicted == targets).sum().item()
@@ -24,35 +31,64 @@ def correct_total(outputs, targets):
     return (correct, total)
 
 
+def init_process_group():
+    while True:
+        try:
+            dist.init_process_group('nccl')
+        except ValueError:
+            time.sleep(5)
+            continue
+        else:
+            break
+
+    rank = dist.get_rank()
+    logging.info('process group: rank-%d among %d processes' % (rank, dist.get_world_size()))
+    return rank
+
+
+class Noop:
+    def noop(self, *args, **kwargs):
+        return self
+    __init__ = __call__ = __getattr__ = __getitem__ = noop
+
+
 def main(args):
     logging.info('args: %s', args)
-    device = torch.device('cuda', 0) if torch.cuda.is_available() else torch.device('cpu', 0)
+
+    rank = init_process_group()
+
+    device = torch.device('cuda', args.local_rank)
 
     batch_size = args.batch
-    train_loader, valid_loader, test_loader, data_shape = Cifar224.loader(batch_size, args.num_class)
-    _ = test_loader
+    local_batch_size = batch_size // torch.distributed.get_world_size()
 
+    # Data loaders.
+    train_set, valid_set, _, data_shape = Cifar224.datasets(args.num_class)
+
+    train_sampler = DistributedSampler(train_set)
+
+    train_loader = DataLoader(train_set, batch_size=local_batch_size, pin_memory=True, drop_last=True, sampler=train_sampler)
+    valid_loader = DataLoader(valid_set, batch_size=local_batch_size, pin_memory=True, drop_last=False)
+
+    # Init the model.
     model = ResNet50(args.num_class)
     model.to(device=device)
-
-    # Print layer shapes.
-    canary = torch.Tensor(*data_shape[0]).to(device)
-    with torch.no_grad():
-        model(canary, verbose=True)
-
-    # Enable data parallelism.
-    model = nn.DataParallel(model)
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
 
     # Integrate with TensorBoard.
+    tb_class = SummaryWriter if rank == 0 else Noop
+
     run_name = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     if args.run:
         run_name += '_' + args.run
-    tb_train = SummaryWriter('runs/%s/train' % run_name)
-    tb_valid = SummaryWriter('runs/%s/valid' % run_name)
-    global_step = 0
+    tb_train = tb_class('runs/%s/train' % run_name)
+    tb_valid = tb_class('runs/%s/valid' % run_name)
 
+    # Optimization strategy.
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9, weight_decay=0.0001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+
+    global_step = 0
 
     for epoch in range(args.epoch):
         # log LR
@@ -62,8 +98,10 @@ def main(args):
             except KeyError:
                 continue
             tb_train.add_scalar('lr', lr, global_step)
+            break
 
         # train
+        model.train()
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             targets = targets.to(device)
 
@@ -85,6 +123,7 @@ def main(args):
             tb_train.add_scalar('accuracy', accuracy, global_step)
 
         # validate
+        model.eval()
         with torch.no_grad():
             losses = []
 
@@ -127,6 +166,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epoch', type=int, default=25)
 
     parser.add_argument('--run', type=str, default='')
+    parser.add_argument('--local_rank', type=int, default=-1)
 
     parser.add_argument('--gpus', type=int, default=torch.cuda.device_count())
 
