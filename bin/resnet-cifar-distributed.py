@@ -63,15 +63,11 @@ def main(args):
     device = torch.device('cuda', args.local_rank + args.from_rank)
     torch.cuda.set_device(device)
 
-    batch_size = args.batch
-
     # Data loaders.
     train_set, valid_set, _, data_shape = Cifar224.datasets(args.num_class, cv_seed=0)
-
     train_sampler = DistributedSampler(train_set)
-
-    train_loader = DataLoader(train_set, batch_size=batch_size, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
-    valid_loader = DataLoader(valid_set, batch_size=batch_size, num_workers=1, pin_memory=True, drop_last=False)
+    train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
+    valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
 
     # Init the model.
     model = ResNet50(args.num_class)
@@ -88,7 +84,7 @@ def main(args):
     tb_valid = tb_class(os.path.join(args.run_dir, run_name, 'valid'))
 
     # Optimization strategy.
-    initial_lr = 0.0004 * batch_size * dist.get_world_size()
+    initial_lr = 0.0004 * args.batch * dist.get_world_size()
     optimizer = torch.optim.SGD(model.parameters(), lr=initial_lr, momentum=0.9, weight_decay=0.0001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
