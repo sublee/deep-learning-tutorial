@@ -65,7 +65,7 @@ def main(args):
     batch_size = args.batch
 
     # Data loaders.
-    train_set, valid_set, _, data_shape = Cifar224.datasets(args.num_class)
+    train_set, valid_set, _, data_shape = Cifar224.datasets(args.num_class, cv_seed=0)
 
     train_sampler = DistributedSampler(train_set)
 

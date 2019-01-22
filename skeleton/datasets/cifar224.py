@@ -14,7 +14,7 @@ CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
 
 class Cifar224:
     @staticmethod
-    def datasets(num_classes=10, cv_ratio=0.2, root='./data'):
+    def datasets(num_classes=10, cv_ratio=0.2, cv_seed=None, root='./data'):
         assert num_classes in [10, 100]
 
         dataset = tv.datasets.CIFAR10 if num_classes == 10 else tv.datasets.CIFAR100
@@ -35,14 +35,14 @@ class Cifar224:
         train_set = dataset(root=root, train=True, download=True, transform=transform_train)
         test_set = dataset(root=root, train=False, download=True, transform=transform_valid)
 
-        spliter = skorch.dataset.CVSplit(cv=cv_ratio, stratified=True)
+        spliter = skorch.dataset.CVSplit(cv=cv_ratio, stratified=True, random_state=cv_seed)
         train_set, valid_set = spliter(train_set, y=np.array(train_set.train_labels, dtype=np.int8))
 
         return train_set, valid_set, test_set, data_shape
 
     @staticmethod
-    def loader(batch_size, num_classes=10, cv_ratio=0.2, root='./data', num_workers=8):
-        train_set, valid_set, test_set, data_shape = Cifar224.datasets(batch_size, num_classes, cv_ratio, root)
+    def loader(batch_size, num_classes=10, cv_ratio=0.2, cv_seed=None, root='./data', num_workers=8):
+        train_set, valid_set, test_set, data_shape = Cifar224.datasets(batch_size, num_classes, cv_ratio, cv_seed, root)
 
         data_shape = [(batch_size,) + shape for shape in data_shape]
 
