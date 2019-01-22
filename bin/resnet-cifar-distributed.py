@@ -35,7 +35,8 @@ def init_process_group():
     while True:
         try:
             dist.init_process_group('nccl')
-        except ValueError:
+        except (RuntimeError, ValueError):
+            # RuntimeError: Connection timed out
             time.sleep(5)
             continue
         else:
