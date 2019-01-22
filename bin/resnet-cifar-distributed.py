@@ -89,6 +89,7 @@ def main(args):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     global_step = 0
+    shared_loss = torch.zeros(1).to(device)
 
     for epoch in range(args.epoch):
         train_sampler.set_epoch(epoch)
@@ -154,6 +155,12 @@ def main(args):
 
             tb_valid.add_scalar('loss', float(loss), global_step)
             tb_valid.add_scalar('accuracy', accuracy, global_step)
+
+        # sync loss
+        if rank == 0:
+            shared_loss.set_(torch.tensor(loss).to(device))
+        dist.broadcast(shared_loss, src=0)
+        loss = shared_loss.item()
 
         # adjust LR by validation loss
         scheduler.step(loss)
