@@ -81,8 +81,8 @@ def main(args):
     run_name = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     if args.run:
         run_name += '_' + args.run
-    tb_train = tb_class('runs/%s/train' % run_name)
-    tb_valid = tb_class('runs/%s/valid' % run_name)
+    tb_train = tb_class(os.path.join(args.run_dir, run_name, 'train'))
+    tb_valid = tb_class(os.path.join(args.run_dir, run_name, 'valid'))
 
     # Optimization strategy.
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-4 * batch_size, momentum=0.9, weight_decay=0.0001)
@@ -166,12 +166,12 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epoch', type=int, default=25)
 
     parser.add_argument('--run', type=str, default='')
-    parser.add_argument('--local_rank', type=int, default=-1)
-
-    parser.add_argument('--gpus', type=int, default=torch.cuda.device_count())
+    parser.add_argument('--run-dir', type=str, default='runs')
 
     parser.add_argument('--log-filename', type=str, default='')
     parser.add_argument('--debug', action='store_true')
+
+    parser.add_argument('--local_rank', type=int, default=-1)
     parsed_args = parser.parse_args()
 
     log_format = '[%(asctime)s %(levelname)s] %(message)s'
