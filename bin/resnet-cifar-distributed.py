@@ -60,7 +60,7 @@ def main(args):
 
     rank = init_process_group()
 
-    device = torch.device('cuda', args.local_rank)
+    device = torch.device('cuda', args.local_rank + args.from_rank)
     torch.cuda.set_device(device)
 
     batch_size = args.batch
@@ -178,6 +178,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true')
 
     parser.add_argument('--local_rank', type=int, default=-1)
+    parser.add_argument('--from-rank', type=int, default=0)
     parsed_args = parser.parse_args()
 
     log_format = '[%(asctime)s %(levelname)s] %(message)s'
