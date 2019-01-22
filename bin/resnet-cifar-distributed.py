@@ -47,9 +47,11 @@ def init_process_group():
 
 
 class Noop:
+    def __init__(self, *args, **kwargs):
+        pass
     def noop(self, *args, **kwargs):
         return self
-    __init__ = __call__ = __getattr__ = __getitem__ = noop
+    __call__ = __getattr__ = __getitem__ = noop
 
 
 def main(args):
