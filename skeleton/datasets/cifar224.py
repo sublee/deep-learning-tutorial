@@ -14,11 +14,11 @@ CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
 
 class Cifar224:
     @staticmethod
-    def datasets(batch_size, num_classes=10, cv_ratio=0.2, root='./data'):
+    def datasets(num_classes=10, cv_ratio=0.2, root='./data'):
         assert num_classes in [10, 100]
 
         dataset = tv.datasets.CIFAR10 if num_classes == 10 else tv.datasets.CIFAR100
-        data_shape = [(batch_size, 3, 224, 224), (batch_size, 1)]
+        data_shape = [(3, 224, 224), (1,)]
 
         transform_train = tv.transforms.Compose([
             tv.transforms.RandomResizedCrop(224),
@@ -43,6 +43,8 @@ class Cifar224:
     @staticmethod
     def loader(batch_size, num_classes=10, cv_ratio=0.2, root='./data', num_workers=8):
         train_set, valid_set, test_set, data_shape = Cifar224.datasets(batch_size, num_classes, cv_ratio, root)
+
+        data_shape = [(batch_size,) + shape for shape in data_shape]
 
         train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=True)
         valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, drop_last=False)
