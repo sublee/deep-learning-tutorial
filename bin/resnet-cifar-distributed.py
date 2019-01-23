@@ -60,6 +60,13 @@ class Noop:
     __call__ = __getattr__ = __getitem__ = noop
 
 
+class SummaryPrinter:
+    def __init__(self, prefix):
+        self.prefix = prefix
+    def add_scalar(self, name, value, step):
+        logging.info('%s/%s: %.5f [step:%d]' % (self.prefix, name, value, step))
+
+
 def main(args):
     logging.info('args: %s', args)
 
@@ -80,10 +87,14 @@ def main(args):
     model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
 
     # Integrate with TensorBoard.
-    if rank == 0 and args.run:
-        run_name = '{:%m-%d/%H:%M} {}'.format(datetime.now(), args.run)
-        tb_train = SummaryWriter(os.path.join(args.run_dir, run_name, 'train'))
-        tb_valid = SummaryWriter(os.path.join(args.run_dir, run_name, 'valid'))
+    if rank == 0:
+        if args.run:
+            run_name = '{:%m-%d/%H:%M} {}'.format(datetime.now(), args.run)
+            tb_train = SummaryWriter(os.path.join(args.run_dir, run_name, 'train'))
+            tb_valid = SummaryWriter(os.path.join(args.run_dir, run_name, 'valid'))
+        else:
+            tb_train = SummaryPrinter('train')
+            tb_valid = SummaryPrinter('valid')
     else:
         tb_train = tb_valid = Noop()
 
