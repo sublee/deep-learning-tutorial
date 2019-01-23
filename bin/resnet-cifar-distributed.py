@@ -85,13 +85,15 @@ def main(args):
     # Optimization strategy.
     initial_lr = 0.0004 * args.batch * dist.get_world_size()
     optimizer = torch.optim.SGD(model.parameters(), lr=initial_lr, momentum=0.9, weight_decay=0.0001)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 60, 80], gamma=0.1)
 
     global_step = 0
-    shared_loss = torch.zeros(1).to(device)
 
     for epoch in range(args.epoch):
         train_sampler.set_epoch(epoch)
+
+        # adjust LR by epoch
+        scheduler.step()
 
         # log LR
         for param_group in optimizer.param_groups:
@@ -165,15 +167,6 @@ def main(args):
 
             tb_valid.add_scalar('loss', float(loss), global_step)
             tb_valid.add_scalar('accuracy', accuracy, global_step)
-
-        # sync loss
-        if rank == 0:
-            shared_loss.set_(torch.tensor(loss).to(device))
-        dist.broadcast(shared_loss, src=0)
-        loss = shared_loss.item()
-
-        # adjust LR by validation loss
-        scheduler.step(loss)
 
 
 if __name__ == '__main__':
