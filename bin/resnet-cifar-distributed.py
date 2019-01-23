@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from bisect import bisect_right
 from datetime import datetime
 import logging
 import os
@@ -10,6 +11,7 @@ import torch
 from torch import nn
 import torch.distributed as dist
 from torch.nn import functional as F
+from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import numpy as np
@@ -43,8 +45,11 @@ def init_process_group():
             break
 
     rank = dist.get_rank()
-    logging.info('process group: rank-%d among %d processes' % (rank, dist.get_world_size()))
-    return rank
+    world_size = dist.get_world_size()
+
+    logging.info('process group: rank-%d among %d processes' % (rank, world_size))
+
+    return rank, world_size
 
 
 class Noop:
@@ -58,7 +63,7 @@ class Noop:
 def main(args):
     logging.info('args: %s', args)
 
-    rank = init_process_group()
+    rank, world_size = init_process_group()
 
     device = torch.device('cuda', args.local_rank + args.from_rank)
     torch.cuda.set_device(device)
@@ -83,12 +88,23 @@ def main(args):
         tb_train = tb_valid = Noop()
 
     # Optimization strategy.
-    initial_lr = 0.0004 * args.batch * dist.get_world_size()
+    initial_lr = 0.0004 * args.batch * world_size
     optimizer = torch.optim.SGD(model.parameters(), lr=initial_lr, momentum=0.9, weight_decay=0.0001)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 60, 80], gamma=0.1)
+
+    def lr_schedule(epoch):
+        if epoch < 5:
+            # gradual warmup
+            inv_world_size = (1 / world_size)
+            return inv_world_size + ((1 - inv_world_size) / 5 * epoch)
+
+        # multi-step LR schedule (1/10 at 30th, 60th, and 80th)
+        milestones = [30, 60, 80]
+        gamma = 0.1
+        return gamma ** bisect_right(milestones, epoch)
+
+    scheduler = LambdaLR(optimizer, lr_schedule)
 
     global_step = 0
-
     for epoch in range(args.epoch):
         train_sampler.set_epoch(epoch)
 
