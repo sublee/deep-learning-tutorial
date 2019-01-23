@@ -103,7 +103,8 @@ def main(args):
             break
 
         # train
-        t = time.time()
+        epoch_t = step_t = time.time()
+
         model.train()
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             targets = targets.to(device)
@@ -122,9 +123,17 @@ def main(args):
                          epoch + 1, args.epoch, batch_idx + 1, len(train_loader), float(loss))
 
             global_step += 1
+
             tb_train.add_scalar('loss', float(loss), global_step)
             tb_train.add_scalar('accuracy', accuracy, global_step)
-        tb_train.add_scalar('time-per-epoch', time.time() - t, global_step)
+
+            # record time per step
+            next_step_t = time.time()
+            tb_train.add_scalar('time-per/step', next_step_t - step_t, global_step)
+            step_t = next_step_t
+
+        # record time per epoch
+        tb_train.add_scalar('time-per/epoch', time.time() - epoch_t, global_step)
 
         # validate
         model.eval()
