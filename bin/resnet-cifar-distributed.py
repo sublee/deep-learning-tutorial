@@ -115,7 +115,6 @@ def main(args):
 
     scheduler = LambdaLR(optimizer, lr_schedule)
 
-    global_step = 0
     for epoch in range(args.epoch):
         train_sampler.set_epoch(epoch)
 
@@ -123,6 +122,7 @@ def main(args):
         scheduler.step()
 
         # log LR
+        global_step = epoch * 1000
         for param_group in optimizer.param_groups:
             try:
                 lr = param_group['lr']
@@ -133,9 +133,12 @@ def main(args):
 
         # train
         epoch_t = step_t = time.time()
+        prev_global_step = global_step
 
         model.train()
         for batch_idx, (inputs, targets) in enumerate(train_loader):
+            global_step = int(epoch * 1000 + (batch_idx / len(train_loader) * 1000))
+
             targets = targets.to(device)
 
             outputs = model(inputs)
@@ -151,15 +154,17 @@ def main(args):
             logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
                          epoch + 1, args.epoch, batch_idx + 1, len(train_loader), float(loss))
 
-            global_step += 1
-
-            tb_train.add_scalar('loss', float(loss), global_step)
-            tb_train.add_scalar('accuracy', accuracy, global_step)
-
-            # record time per step
             next_step_t = time.time()
-            tb_train.add_scalar('time-per/step', next_step_t - step_t, global_step)
+
+            if prev_global_step != global_step:
+                tb_train.add_scalar('loss', float(loss), global_step)
+                tb_train.add_scalar('accuracy', accuracy, global_step)
+                tb_train.add_scalar('time-per/step', next_step_t - step_t, global_step)
+
             step_t = next_step_t
+            prev_global_step = global_step
+
+        global_step = (epoch + 1) * 1000
 
         # record time per epoch
         tb_train.add_scalar('time-per/epoch', time.time() - epoch_t, global_step)
