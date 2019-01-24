@@ -61,10 +61,8 @@ class Noop:
 
 
 class SummaryPrinter:
-    def __init__(self, prefix):
-        self.prefix = prefix
     def add_scalar(self, name, value, step):
-        logging.info('%s/%s: %.5f [step:%d]' % (self.prefix, name, value, step))
+        logging.info('%s: %.5f [step:%d]' % (name, value, step))
 
 
 def gen_global_step(epoch, batch_idx=0, num_batches=0):
@@ -107,13 +105,11 @@ def main(args):
     if rank == 0:
         if args.run:
             run_name = '{:%m-%d/%H:%M} {}'.format(datetime.now(), args.run)
-            tb_train = SummaryWriter(os.path.join(args.run_dir, run_name, 'train'))
-            tb_valid = SummaryWriter(os.path.join(args.run_dir, run_name, 'valid'))
+            tb = SummaryWriter(os.path.join(args.run_dir, run_name))
         else:
-            tb_train = SummaryPrinter('train')
-            tb_valid = SummaryPrinter('valid')
+            tb = SummaryPrinter()
     else:
-        tb_train = tb_valid = Noop()
+        tb = Noop()
 
     # Optimization strategy.
     initial_lr = 0.0004 * args.batch * world_size
@@ -145,7 +141,7 @@ def main(args):
                 lr = param_group['lr']
             except KeyError:
                 continue
-            tb_train.add_scalar('lr', lr, global_step)
+            tb.add_scalar('lr', lr, global_step)
             break
 
         # train
@@ -173,16 +169,16 @@ def main(args):
             next_step_t = time.time()
 
             if global_step_changed:
-                tb_train.add_scalar('loss', float(loss), global_step)
-                tb_train.add_scalar('accuracy', accuracy, global_step)
-                tb_train.add_scalar('time-per/step', next_step_t - step_t, global_step)
+                tb.add_scalar('loss/train', float(loss), global_step)
+                tb.add_scalar('accuracy/train', accuracy, global_step)
+                tb.add_scalar('time-per/step', next_step_t - step_t, global_step)
 
             step_t = next_step_t
 
         global_step, _ = gen_global_step(epoch + 1)
 
         # record time per epoch
-        tb_train.add_scalar('time-per/epoch', time.time() - epoch_t, global_step)
+        tb.add_scalar('time-per/epoch', time.time() - epoch_t, global_step)
 
         # validate
         model.eval()
@@ -212,8 +208,8 @@ def main(args):
             logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f, accuracy: %.1f%%',
                          epoch + 1, args.epoch, loss, accuracy * 100)
 
-            tb_valid.add_scalar('loss', float(loss), global_step)
-            tb_valid.add_scalar('accuracy', accuracy, global_step)
+            tb.add_scalar('loss/valid', float(loss), global_step)
+            tb.add_scalar('accuracy/valid', accuracy, global_step)
 
 
 if __name__ == '__main__':
