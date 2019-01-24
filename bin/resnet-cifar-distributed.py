@@ -84,7 +84,7 @@ def main(args):
     # Init the model.
     model = ResNet50(args.num_class)
     model.to(device=device)
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[device], broadcast_buffers=False)
 
     # Integrate with TensorBoard.
     if rank == 0:
