@@ -67,6 +67,23 @@ class SummaryPrinter:
         logging.info('%s/%s: %.5f [step:%d]' % (self.prefix, name, value, step))
 
 
+def gen_global_step(epoch, batch_idx=0, num_batches=0):
+    """Generates a global step by the current epoch, batch index, and the
+    number of batches.
+
+    Returns:
+        (current global step, whether if the global step changed at this batch index)
+
+    """
+    def f(batch_idx, steps_per_epoch=1000):
+        return epoch * steps_per_epoch + (int(batch_idx / num_batches * steps_per_epoch) if num_batches else 0)
+
+    current = f(batch_idx)
+    prev = f(batch_idx - 1)
+
+    return current, (current != prev)
+
+
 def main(args):
     logging.info('args: %s', args)
 
@@ -122,7 +139,7 @@ def main(args):
         scheduler.step()
 
         # log LR
-        global_step = epoch * 1000
+        global_step, _ = gen_global_step(epoch)
         for param_group in optimizer.param_groups:
             try:
                 lr = param_group['lr']
@@ -133,11 +150,10 @@ def main(args):
 
         # train
         epoch_t = step_t = time.time()
-        prev_global_step = global_step
 
         model.train()
         for batch_idx, (inputs, targets) in enumerate(train_loader):
-            global_step = int(epoch * 1000 + (batch_idx / len(train_loader) * 1000))
+            global_step, global_step_changed = gen_global_step(epoch, batch_idx, len(train_loader))
 
             targets = targets.to(device)
 
@@ -156,15 +172,14 @@ def main(args):
 
             next_step_t = time.time()
 
-            if prev_global_step != global_step:
+            if global_step_changed:
                 tb_train.add_scalar('loss', float(loss), global_step)
                 tb_train.add_scalar('accuracy', accuracy, global_step)
                 tb_train.add_scalar('time-per/step', next_step_t - step_t, global_step)
 
             step_t = next_step_t
-            prev_global_step = global_step
 
-        global_step = (epoch + 1) * 1000
+        global_step, _ = gen_global_step(epoch + 1)
 
         # record time per epoch
         tb_train.add_scalar('time-per/epoch', time.time() - epoch_t, global_step)
