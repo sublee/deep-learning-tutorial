@@ -160,18 +160,23 @@ def main(args):
             optimizer.step()
             optimizer.zero_grad()
 
-            correct, total = correct_total(outputs, targets)
-            accuracy = correct / total
-
-            logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
-                         epoch + 1, args.epoch, batch_idx + 1, len(train_loader), float(loss))
-
             next_step_t = time.time()
 
             if global_step_changed:
-                tb.add_scalar('loss/train', float(loss), global_step)
-                tb.add_scalar('accuracy/train', accuracy, global_step)
                 tb.add_scalar('time-per/step', next_step_t - step_t, global_step)
+
+                # record train accuracy and loss only 10 times for an epoch.
+                if batch_idx % int(len(train_loader) / 10) == 0:
+                    correct, total = correct_total(outputs, targets)
+                    accuracy = correct / total
+
+                    loss_f = float(loss)
+
+                    logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
+                                 epoch + 1, args.epoch, batch_idx + 1, len(train_loader), loss_f)
+
+                    tb.add_scalar('accuracy/train', accuracy, global_step)
+                    tb.add_scalar('loss/train', loss_f, global_step)
 
             step_t = next_step_t
 
