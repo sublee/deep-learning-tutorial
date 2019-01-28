@@ -20,7 +20,7 @@ base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_dir)
 
 from skeleton.resnet import ResNet50
-from skeleton.datasets import Cifar224
+from skeleton.datasets import Cifar, Imagenet
 from skeleton.utils import init_process_group, Noop, TensorBoardWriter
 
 
@@ -34,6 +34,23 @@ def correct_total(outputs, targets):
     return (correct, total)
 
 
+def find_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        try:
+            return param_group['lr']
+        except KeyError:
+            pass
+
+
+def datasets(name) -> (('train_set', 'valid_set', 'data_shape'), 'num_classes'):
+    if name == 'cifar10':
+        return Cifar.sets(10), 10
+    elif name == 'cifar100':
+        return Cifar.sets(100), 100
+    elif name == 'imagenet':
+        return Imagenet.sets(args.batch), 1000
+
+
 def main(args):
     logging.info('args: %s', args)
 
@@ -44,13 +61,13 @@ def main(args):
     torch.cuda.set_device(device)
 
     # Data loaders.
-    train_set, valid_set, _, data_shape = Cifar224.datasets(args.num_class, cv_seed=0)
+    (train_set, valid_set, data_shape), num_classes = datasets(args.data)
     train_sampler = DistributedSampler(train_set)
     train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
     valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
 
     # Init the model.
-    model = ResNet50(args.num_class)
+    model = ResNet50(num_classes)
     model.to(device=device)
     model = nn.parallel.DistributedDataParallel(model, device_ids=[device], broadcast_buffers=False)
 
@@ -83,23 +100,17 @@ def main(args):
 
     scheduler = LambdaLR(optimizer, lr_schedule)
 
-    for epoch in range(args.epoch):
+    for epoch in range(args.epochs):
         train_sampler.set_epoch(epoch)
 
         # adjust LR by epoch
         scheduler.step()
 
         # log LR
-        lr = 0
-        for param_group in optimizer.param_groups:
-            try:
-                lr = param_group['lr']
-            except KeyError:
-                continue
-            break
-        tb(epoch).scalar('lr', lr)
+        tb(epoch).scalar('lr', find_lr(optimizer))
 
-        # train
+        # train ---------------------------------------------------------------
+
         model.train()
 
         epoch_t = time.time()
@@ -129,13 +140,14 @@ def main(args):
         # record time per epoch
         tb(epoch + 1).scalar('time-per/epoch', time.time() - epoch_t)
 
-        # validate
-        losses = []
+        # validate ------------------------------------------------------------
 
+        model.eval()
+
+        losses = []
         correct = 0
         total = 0
 
-        model.eval()
         with torch.no_grad():
             for inputs, targets in valid_loader:
                 targets = targets.to(device)
@@ -162,9 +174,9 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--num-class', type=int, default=10, help='10 or 100')
+    parser.add_argument('-d', '--data', type=str, default='cifar10')
     parser.add_argument('-b', '--batch', type=int, default=128)
-    parser.add_argument('-e', '--epoch', type=int, default=25)
+    parser.add_argument('-e', '--epochs', type=int, default=200)
 
     parser.add_argument('--run', type=str, default='')
     parser.add_argument('--run-dir', type=str, default='runs')
