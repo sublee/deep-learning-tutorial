@@ -20,7 +20,7 @@ base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_dir)
 
 from skeleton.resnet import ResNet50
-from skeleton.datasets import Cifar, Imagenet
+from skeleton.datasets import Cifar, Cifar224, Imagenet
 from skeleton.utils import init_process_group, Noop, TensorBoardWriter
 
 
@@ -42,13 +42,17 @@ def find_lr(optimizer):
             pass
 
 
-def datasets(name) -> (('train_set', 'valid_set', 'data_shape'), 'num_classes'):
+def datasets(batch_size, name) -> (('train_set', 'valid_set', 'data_shape'), 'num_classes'):
     if name == 'cifar10':
-        return Cifar.sets(10), 10
-    elif name == 'cifar100':
-        return Cifar.sets(100), 100
-    elif name == 'imagenet':
-        return Imagenet.sets(args.batch), 1000
+        return Cifar.sets(batch_size, 10), 10
+    if name == 'cifar100':
+        return Cifar.sets(batch_size, 100), 100
+    if name == 'cifar10-224':
+        return Cifar224.sets(batch_size, 10), 10
+    if name == 'cifar100-224':
+        return Cifar224.sets(batch_size, 100), 100
+    if name == 'imagenet':
+        return Imagenet.sets(batch_size), 1000
 
 
 def main(args):
@@ -61,7 +65,7 @@ def main(args):
     torch.cuda.set_device(device)
 
     # Data loaders.
-    (train_set, valid_set, data_shape), num_classes = datasets(args.data)
+    (train_set, valid_set, data_shape), num_classes = datasets(args.batch, args.data)
     train_sampler = DistributedSampler(train_set)
     train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
     valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
