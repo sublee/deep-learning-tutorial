@@ -42,7 +42,7 @@ class Cifar224:
 
     @staticmethod
     def loader(batch_size, num_classes=10, cv_ratio=0.2, cv_seed=None, root='./data', num_workers=8):
-        train_set, valid_set, test_set, data_shape = Cifar224.datasets(batch_size, num_classes, cv_ratio, cv_seed, root)
+        train_set, valid_set, test_set, data_shape = Cifar224.datasets(num_classes, cv_ratio, cv_seed, root)
 
         data_shape = [(batch_size,) + shape for shape in data_shape]
 
