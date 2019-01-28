@@ -21,6 +21,7 @@ sys.path.append(base_dir)
 
 from skeleton.resnet import ResNet50
 from skeleton.datasets import Cifar224
+from skeleton.utils import init_process_group, Noop, TensorBoardWriter
 
 
 assert torch.cuda.is_available()
@@ -33,60 +34,12 @@ def correct_total(outputs, targets):
     return (correct, total)
 
 
-def init_process_group():
-    while True:
-        try:
-            dist.init_process_group('nccl')
-        except (RuntimeError, ValueError):
-            # RuntimeError: Connection timed out
-            time.sleep(5)
-            continue
-        else:
-            break
-
-    rank = dist.get_rank()
-    world_size = dist.get_world_size()
-
-    logging.info('process group: rank-%d among %d processes' % (rank, world_size))
-
-    return rank, world_size
-
-
-class Noop:
-    def __init__(self, *args, **kwargs):
-        pass
-    def noop(self, *args, **kwargs):
-        return self
-    __call__ = __getattr__ = __getitem__ = noop
-
-
-class SummaryPrinter:
-    def add_scalar(self, name, value, step):
-        logging.info('%s: %.5f [step:%d]' % (name, value, step))
-
-
-def gen_global_step(epoch, batch_idx=0, num_batches=0):
-    """Generates a global step by the current epoch, batch index, and the
-    number of batches.
-
-    Returns:
-        (current global step, whether if the global step changed at this batch index)
-
-    """
-    def f(batch_idx, steps_per_epoch=1000):
-        return epoch * steps_per_epoch + (int(batch_idx / num_batches * steps_per_epoch) if num_batches else 0)
-
-    current = f(batch_idx)
-    prev = f(batch_idx - 1)
-
-    return current, (current != prev)
-
-
 def main(args):
     logging.info('args: %s', args)
 
     rank, world_size = init_process_group()
 
+    # Use only 1 GPU.
     device = torch.device('cuda', args.local_rank + args.from_rank)
     torch.cuda.set_device(device)
 
@@ -105,9 +58,10 @@ def main(args):
     if rank == 0:
         if args.run:
             run_name = '{:%m-%d/%H:%M} {}'.format(datetime.now(), args.run)
-            tb = SummaryWriter(os.path.join(args.run_dir, run_name))
+            tb_path = os.path.join(args.run_dir, run_name)
         else:
-            tb = SummaryPrinter()
+            tb_path = None
+        tb = TensorBoardWriter(len(train_loader), tb_path)
     else:
         tb = Noop()
 
@@ -115,6 +69,7 @@ def main(args):
     initial_lr = 0.0004 * args.batch * world_size
     optimizer = torch.optim.SGD(model.parameters(), lr=initial_lr, momentum=0.9, weight_decay=0.0001)
 
+    # LR scheduling.
     def lr_schedule(epoch):
         if epoch < 5:
             # gradual warmup
@@ -135,21 +90,22 @@ def main(args):
         scheduler.step()
 
         # log LR
-        global_step, _ = gen_global_step(epoch)
+        lr = 0
         for param_group in optimizer.param_groups:
             try:
                 lr = param_group['lr']
             except KeyError:
                 continue
-            tb.add_scalar('lr', lr, global_step)
             break
+        tb(epoch).scalar('lr', lr)
 
         # train
-        epoch_t = step_t = time.time()
-
         model.train()
-        for batch_idx, (inputs, targets) in enumerate(train_loader):
-            global_step, global_step_changed = gen_global_step(epoch, batch_idx, len(train_loader))
+
+        epoch_t = time.time()
+
+        for i, (inputs, targets) in enumerate(train_loader):
+            step_t = time.time()
 
             targets = targets.to(device)
 
@@ -160,39 +116,27 @@ def main(args):
             optimizer.step()
             optimizer.zero_grad()
 
-            next_step_t = time.time()
+            tb_add = tb(epoch, i)
+            if tb_add:
+                tb_add.scalar('time-per/step', time.time() - step_t)
 
-            if global_step_changed:
-                tb.add_scalar('time-per/step', next_step_t - step_t, global_step)
+                correct, total = correct_total(outputs, targets)
+                accuracy = correct / total
+                tb_add.scalar('accuracy/train', accuracy)
 
-                # record train accuracy and loss only 10 times for an epoch.
-                if batch_idx % int(len(train_loader) / 10) == 0:
-                    correct, total = correct_total(outputs, targets)
-                    accuracy = correct / total
-
-                    loss_f = float(loss)
-
-                    logging.info('[train] [epoch:%04d/%04d] [step:%04d/%04d] loss: %.5f',
-                                 epoch + 1, args.epoch, batch_idx + 1, len(train_loader), loss_f)
-
-                    tb.add_scalar('accuracy/train', accuracy, global_step)
-                    tb.add_scalar('loss/train', loss_f, global_step)
-
-            step_t = next_step_t
-
-        global_step, _ = gen_global_step(epoch + 1)
+                tb_add.scalar('loss/train', float(loss))
 
         # record time per epoch
-        tb.add_scalar('time-per/epoch', time.time() - epoch_t, global_step)
+        tb(epoch + 1).scalar('time-per/epoch', time.time() - epoch_t)
 
         # validate
+        losses = []
+
+        correct = 0
+        total = 0
+
         model.eval()
         with torch.no_grad():
-            losses = []
-
-            correct = 0
-            total = 0
-
             for inputs, targets in valid_loader:
                 targets = targets.to(device)
 
@@ -207,14 +151,11 @@ def main(args):
                 correct += correct_
                 total += total_
 
-            loss = np.average(losses)
-            accuracy = correct / total
+        accuracy = correct / total
+        tb(epoch + 1).scalar('accuracy/valid', accuracy)
 
-            logging.info('[vaild] [epoch:%04d/%04d]                  loss: %.5f, accuracy: %.1f%%',
-                         epoch + 1, args.epoch, loss, accuracy * 100)
-
-            tb.add_scalar('loss/valid', float(loss), global_step)
-            tb.add_scalar('accuracy/valid', accuracy, global_step)
+        loss = np.average(losses)
+        tb(epoch + 1).scalar('loss/valid', float(loss))
 
 
 if __name__ == '__main__':
