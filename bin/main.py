@@ -104,17 +104,14 @@ def main(args):
 
     scheduler = LambdaLR(optimizer, lr_schedule)
 
-    for epoch in range(args.epochs):
+    # -------------------------------------------------------------------------
+
+    def step(epoch):
         train_sampler.set_epoch(epoch)
-
-        # adjust LR by epoch
-        scheduler.step()
-
-        # log LR
+        scheduler.step(epoch)
         tb(epoch).scalar('lr', find_lr(optimizer))
 
-        # train ---------------------------------------------------------------
-
+    def train(epoch):
         model.train()
 
         epoch_t = time.time()
@@ -144,8 +141,7 @@ def main(args):
         # record time per epoch
         tb(epoch + 1).scalar('time-per/epoch', time.time() - epoch_t)
 
-        # validate ------------------------------------------------------------
-
+    def valid(epoch):
         model.eval()
 
         losses = []
@@ -172,6 +168,11 @@ def main(args):
 
         loss = np.average(losses)
         tb(epoch + 1).scalar('loss/valid', float(loss))
+
+    for epoch in range(args.epochs):
+        step(epoch)
+        train(epoch)
+        valid(epoch)
 
 
 if __name__ == '__main__':
