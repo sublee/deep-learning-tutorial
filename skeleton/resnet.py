@@ -18,24 +18,17 @@ class ResNet50(IOModule):
         super().__init__()
 
         # the first simple convolution layer
+        layer1 = [nn.BatchNorm2d(64), nn.ReLU()]
+
         assert input_size in [224, 32]
-
         if input_size == 224:
-            layer1_kernel_size = 7
-            layer1_stride = 2
-            layer1_padding = 3
-        else:
-            layer1_kernel_size = 3
-            layer1_stride = 1
-            layer1_padding = 1
+            layer1.insert(0, nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False))
+            layer1.append(nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
+        elif input_size == 32:
+            layer1.insert(0, nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False))
 
-        self.layer1 = nn.Sequential(
-            # The input size should be (n, 3, 224, 224).
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=layer1_kernel_size, stride=layer1_stride, padding=layer1_padding, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-        )
+        # The input size should be (n, 3, 224, 224)wor (n, 3, 32, 32).
+        self.layer1 = nn.Sequential(*layer1)
 
         # residual blocks
         self.layer2 = ResidualBlock(in_channels=64, mid_channels=64, out_channels=256, stride=1, repeat=3)
