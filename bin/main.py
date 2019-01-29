@@ -120,10 +120,10 @@ def main(args):
         if epoch < lr_warmup:
             # gradual warmup
             inv_world_size = (1 / world_size)
-            return inv_world_size + ((1 - inv_world_size) / 5 * epoch)
+            return inv_world_size + ((1 - inv_world_size) / lr_warmup * epoch)
 
         # multi-step LR schedule (1/10 at each LR milestone)
-        return 0.1 ** bisect_right(lr_milestones, epoch)
+        return 0.1 ** bisect_right(lr_milestones, epoch - lr_warmup)
 
     scheduler = LambdaLR(optimizer, lr_schedule)
 
