@@ -42,35 +42,40 @@ def find_lr(optimizer):
             pass
 
 
-def load_env(batch_size, dataset_name) -> (('train_set', 'valid_set', 'data_shape'), 'num_classes', 'num_epochs', 'lr_milestones'):
+def load_env(batch_size, dataset_name) -> (('train_set', 'valid_set', 'data_shape'), 'num_classes', 'num_epochs', 'lr_warmup', 'lr_milestones'):
     if dataset_name == 'cifar10':
         return (Cifar.sets(batch_size, 10),
                 10,
                 300,
+                15,
                 [100, 150, 200])
 
     if dataset_name == 'cifar100':
         return (Cifar.sets(batch_size, 100),
                 100,
                 300,
+                15,
                 [100, 150, 200])
 
     if dataset_name == 'cifar10-224':
         return (Cifar224.sets(batch_size, 10),
                 10,
                 300,
+                15,
                 [100, 150, 200])
 
     if dataset_name == 'cifar100-224':
         return (Cifar224.sets(batch_size, 100),
                 100,
                 300,
+                15,
                 [100, 150, 200])
 
     if dataset_name == 'imagenet':
         return (Imagenet.sets(batch_size),
                 1000,
                 100,
+                5,
                 [30, 60, 80])
 
 
@@ -84,7 +89,7 @@ def main(args):
     torch.cuda.set_device(device)
 
     # Data loaders.
-    (train_set, valid_set, data_shape), num_classes, num_epochs, lr_milestones = load_env(args.batch, args.data)
+    (train_set, valid_set, data_shape), num_classes, num_epochs, lr_warmup, lr_milestones = load_env(args.batch, args.data)
     train_sampler = DistributedSampler(train_set)
     train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
     valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
@@ -112,7 +117,7 @@ def main(args):
 
     # LR scheduling.
     def lr_schedule(epoch):
-        if epoch < 5:
+        if epoch < lr_warmup:
             # gradual warmup
             inv_world_size = (1 / world_size)
             return inv_world_size + ((1 - inv_world_size) / 5 * epoch)
