@@ -21,9 +21,11 @@ class ResNet50(IOModule):
         layer1 = [nn.BatchNorm2d(64), nn.ReLU()]
 
         assert input_size in [224, 32]
+
         if input_size == 224:
             layer1.insert(0, nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False))
             layer1.append(nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
+
         elif input_size == 32:
             layer1.insert(0, nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False))
 
