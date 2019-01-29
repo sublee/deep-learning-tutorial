@@ -42,17 +42,36 @@ def find_lr(optimizer):
             pass
 
 
-def datasets(batch_size, name) -> (('train_set', 'valid_set', 'data_shape'), 'num_classes'):
-    if name == 'cifar10':
-        return Cifar.sets(batch_size, 10), 10
-    if name == 'cifar100':
-        return Cifar.sets(batch_size, 100), 100
-    if name == 'cifar10-224':
-        return Cifar224.sets(batch_size, 10), 10
-    if name == 'cifar100-224':
-        return Cifar224.sets(batch_size, 100), 100
-    if name == 'imagenet':
-        return Imagenet.sets(batch_size), 1000
+def load_env(batch_size, dataset_name) -> (('train_set', 'valid_set', 'data_shape'), 'num_classes', 'num_epochs', 'lr_milestones'):
+    if dataset_name == 'cifar10':
+        return (Cifar.sets(batch_size, 10),
+                10,
+                300,
+                [100, 150, 200])
+
+    if dataset_name == 'cifar100':
+        return (Cifar.sets(batch_size, 100),
+                100,
+                300,
+                [100, 150, 200])
+
+    if dataset_name == 'cifar10-224':
+        return (Cifar224.sets(batch_size, 10),
+                10,
+                300,
+                [100, 150, 200])
+
+    if dataset_name == 'cifar100-224':
+        return (Cifar224.sets(batch_size, 100),
+                100,
+                300,
+                [100, 150, 200])
+
+    if dataset_name == 'imagenet':
+        return (Imagenet.sets(batch_size),
+                1000,
+                100,
+                [30, 60, 80])
 
 
 def main(args):
@@ -65,13 +84,14 @@ def main(args):
     torch.cuda.set_device(device)
 
     # Data loaders.
-    (train_set, valid_set, data_shape), num_classes = datasets(args.batch, args.data)
+    (train_set, valid_set, data_shape), num_classes, num_epochs, lr_milestones = load_env(args.batch, args.data)
     train_sampler = DistributedSampler(train_set)
     train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
     valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
 
     # Init the model.
-    model = ResNet50(num_classes)
+    input_size = data_shape[0][2]
+    model = ResNet50(num_classes, input_size)
     model.to(device=device)
     model = nn.parallel.DistributedDataParallel(model, device_ids=[device], broadcast_buffers=False)
 
@@ -97,10 +117,8 @@ def main(args):
             inv_world_size = (1 / world_size)
             return inv_world_size + ((1 - inv_world_size) / 5 * epoch)
 
-        # multi-step LR schedule (1/10 at 30th, 60th, and 80th)
-        milestones = [30, 60, 80]
-        gamma = 0.1
-        return gamma ** bisect_right(milestones, epoch)
+        # multi-step LR schedule (1/10 at each LR milestone)
+        return 0.1 ** bisect_right(lr_milestones, epoch)
 
     scheduler = LambdaLR(optimizer, lr_schedule)
 
@@ -169,7 +187,7 @@ def main(args):
         loss = np.average(losses)
         tb(epoch + 1).scalar('loss/valid', float(loss))
 
-    for epoch in range(args.epochs):
+    for epoch in range(num_epochs):
         step(epoch)
         train(epoch)
         valid(epoch)
@@ -181,7 +199,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--data', type=str, default='cifar10')
     parser.add_argument('-b', '--batch', type=int, default=128)
-    parser.add_argument('-e', '--epochs', type=int, default=200)
 
     parser.add_argument('--run', type=str, default='')
     parser.add_argument('--run-dir', type=str, default='runs')

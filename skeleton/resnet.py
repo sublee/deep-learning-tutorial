@@ -14,13 +14,24 @@ class ResNet50(IOModule):
     Research <https://arxiv.org/abs/1512.03385>`_.
     """
 
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=10, input_size=224):
         super().__init__()
 
         # the first simple convolution layer
+        assert input_size in [224, 32]
+
+        if input_size == 224:
+            layer1_kernel_size = 7
+            layer1_stride = 2
+            layer1_padding = 3
+        else:
+            layer1_kernel_size = 3
+            layer1_stride = 1
+            layer1_padding = 1
+
         self.layer1 = nn.Sequential(
             # The input size should be (n, 3, 224, 224).
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False),
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=layer1_kernel_size, stride=layer1_stride, padding=layer1_padding, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
