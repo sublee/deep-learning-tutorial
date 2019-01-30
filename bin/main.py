@@ -6,10 +6,8 @@ import os
 import sys
 import time
 
-from tensorboardX import SummaryWriter
 import torch
 from torch import nn
-import torch.distributed as dist
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
