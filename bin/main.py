@@ -112,15 +112,15 @@ def main(args):
         tb = Noop()
 
     # Optimization strategy.
-    initial_lr = 0.0004 * args.batch * world_size
+    total_batch_size = args.batch * world_size
+    initial_lr = 0.1 / 256 * total_batch_size
     optimizer = torch.optim.SGD(model.parameters(), lr=initial_lr, momentum=0.9, weight_decay=0.0001)
 
     # LR scheduling.
     def lr_schedule(epoch):
         if epoch < lr_warmup:
             # gradual warmup
-            inv_world_size = (1 / world_size)
-            return inv_world_size + ((1 - inv_world_size) / lr_warmup * epoch)
+            return (256 / total_batch_size) + (1 - 256 / total_batch_size) / lr_warmup * epoch
 
         # multi-step LR schedule (1/10 at each LR milestone)
         return 0.1 ** bisect_right(lr_milestones, epoch - lr_warmup)
