@@ -19,7 +19,7 @@ sys.path.append(base_dir)
 
 from skeleton.resnet import ResNet50
 from skeleton.datasets import Cifar, Cifar224, Imagenet
-from skeleton.utils import init_process_group, Noop, TensorBoardWriter
+from skeleton.utils import Noop, TensorBoardWriter
 
 
 assert torch.cuda.is_available()
@@ -80,15 +80,36 @@ def load_env(batch_size, dataset_name) -> (('train_set', 'valid_set', 'data_shap
 def main(args):
     logging.info('args: %s', args)
 
-    rank, world_size = init_process_group()
+    # Init cluster on a launcher.
+    launcher = args.launcher
+
+    if launcher == 'auto':
+        # Detect launcher.
+        if os.getenv('OMPI_UNIVERSE_SIZE'):
+            launcher = 'horovod'
+        else:
+            launcher = 'pytorch'
+
+    assert launcher in ['pytorch', 'horovod']
+
+    if launcher == 'pytorch':
+        from skeleton.utils import init_process_group
+        rank, world_size = init_process_group()
+        local_rank = args.local_rank
+
+    elif launcher == 'horovod':
+        import horovod.torch as hvd
+        hvd.init()
+        rank, world_size = hvd.rank(), hvd.size()
+        local_rank = hvd.local_rank()
 
     # Use only 1 GPU.
-    device = torch.device('cuda', args.local_rank + args.from_rank)
+    device = torch.device('cuda', local_rank + args.from_rank)
     torch.cuda.set_device(device)
 
     # Data loaders.
     (train_set, valid_set, data_shape), num_classes, num_epochs, lr_warmup, lr_milestones = load_env(args.batch, args.data)
-    train_sampler = DistributedSampler(train_set)
+    train_sampler = DistributedSampler(train_set, num_replicas=world_size, rank=rank)
     train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
     valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
 
@@ -96,7 +117,6 @@ def main(args):
     input_size = data_shape[0][2]
     model = ResNet50(num_classes, input_size)
     model.to(device=device)
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[device], broadcast_buffers=False)
 
     # Integrate with TensorBoard.
     if rank == 0:
@@ -113,6 +133,14 @@ def main(args):
     total_batch_size = args.batch * world_size
     initial_lr = 0.1 / 256 * total_batch_size
     optimizer = torch.optim.SGD(model.parameters(), lr=initial_lr, momentum=0.9, weight_decay=0.0001)
+
+    # Distributed learning.
+    if launcher == 'pytorch':
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[device], broadcast_buffers=False)
+
+    elif launcher == 'horovod':
+        optimizer = hvd.DistributedOptimizer(optimizer, model.named_parameters())
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 
     # LR scheduling.
     def lr_schedule(epoch):
@@ -140,6 +168,7 @@ def main(args):
         for i, (inputs, targets) in enumerate(train_loader):
             step_t = time.time()
 
+            inputs = inputs.to(device)
             targets = targets.to(device)
 
             outputs = model(inputs)
@@ -171,6 +200,7 @@ def main(args):
 
         with torch.no_grad():
             for inputs, targets in valid_loader:
+                inputs = inputs.to(device)
                 targets = targets.to(device)
 
                 outputs = model(inputs)
@@ -200,6 +230,9 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--launcher', type=str, default='auto', help='[auto]|pytorch|horovod')
+
     parser.add_argument('-d', '--data', type=str, default='cifar10')
     parser.add_argument('-b', '--batch', type=int, default=128)
 
