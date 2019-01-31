@@ -188,8 +188,11 @@ def main(args):
 
                 tb_add.scalar('loss/train', float(loss))
 
-        # record time per epoch
-        tb(epoch + 1).scalar('time-per/epoch', time.time() - epoch_t)
+        # record for every epoch
+        time_per_epoch = time.time() - epoch_t
+        epoch_batch_size = len(train_loader) * total_batch_size
+        tb(epoch + 1).scalar('time-per/epoch', time_per_epoch)
+        tb(epoch + 1).scalar('batch-per-second', epoch_batch_size / time_per_epoch)
 
     def valid(epoch):
         model.eval()
