@@ -166,6 +166,10 @@ def main(args):
         epoch_t = time.time()
 
         for i, (inputs, targets) in enumerate(train_loader):
+            # NOTE: gradual warmup should be at each iteration instead of epoch.
+            if epoch < lr_warmup:
+                scheduler.step(epoch + (i / len(train_loader)))
+
             step_t = time.time()
 
             inputs = inputs.to(device)
