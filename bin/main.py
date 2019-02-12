@@ -117,6 +117,7 @@ def main(args):
     input_size = data_shape[0][2]
     model = ResNet50(num_classes, input_size)
     model.to(device=device)
+    model.half()
 
     # Integrate with TensorBoard.
     if rank == 0:
@@ -172,7 +173,7 @@ def main(args):
 
             step_t = time.time()
 
-            inputs = inputs.to(device)
+            inputs = inputs.half().to(device)
             targets = targets.to(device)
 
             outputs = model(inputs)
@@ -207,7 +208,7 @@ def main(args):
 
         with torch.no_grad():
             for inputs, targets in valid_loader:
-                inputs = inputs.to(device)
+                inputs = inputs.half().to(device)
                 targets = targets.to(device)
 
                 outputs = model(inputs)
