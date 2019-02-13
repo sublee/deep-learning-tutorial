@@ -119,6 +119,21 @@ def main(args):
     model = ResNet50(num_classes, input_size)
     model.to(device, dtype)
 
+    # Convert input batches to float16 in the pin memory thread of DataLoader.
+    if dtype is torch.float16:
+        from torch import Tensor
+        from torch.utils.data import dataloader
+
+        def to_half(f):
+            def wrapped(*args, **kwargs):
+                x = f(*args, **kwargs)
+                if isinstance(x, Tensor) and x.is_floating_point():
+                    return x.half()
+                return x
+            return wrapped
+
+        dataloader.pin_memory_batch = to_half(dataloader.pin_memory_batch)
+
     # Integrate with TensorBoard.
     if rank == 0:
         if args.run:
