@@ -114,10 +114,10 @@ def main(args):
     valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
 
     # Init the model.
+    dtype = torch.float16
     input_size = data_shape[0][2]
     model = ResNet50(num_classes, input_size)
-    model.to(device=device)
-    model.half()
+    model.to(device, dtype)
 
     # Integrate with TensorBoard.
     if rank == 0:
@@ -173,7 +173,7 @@ def main(args):
 
             step_t = time.time()
 
-            inputs = inputs.half().to(device)
+            inputs = inputs.to(device, dtype)
             targets = targets.to(device)
 
             outputs = model(inputs)
@@ -208,7 +208,7 @@ def main(args):
 
         with torch.no_grad():
             for inputs, targets in valid_loader:
-                inputs = inputs.half().to(device)
+                inputs = inputs.to(device, dtype)
                 targets = targets.to(device)
 
                 outputs = model(inputs)
