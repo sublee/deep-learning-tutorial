@@ -110,8 +110,8 @@ def main(args):
     # Data loaders.
     (train_set, valid_set, data_shape), num_classes, num_epochs, lr_warmup, lr_milestones = load_env(args.batch, args.data)
     train_sampler = DistributedSampler(train_set, num_replicas=world_size, rank=rank)
-    train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=True, sampler=train_sampler)
-    valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=1, pin_memory=True, drop_last=False)
+    train_loader = DataLoader(train_set, batch_size=args.batch, num_workers=10, pin_memory=True, drop_last=True, sampler=train_sampler)
+    valid_loader = DataLoader(valid_set, batch_size=args.batch, num_workers=10, pin_memory=True, drop_last=False)
 
     # Init the model.
     dtype = torch.float16
