@@ -184,9 +184,11 @@ def main(args):
 
         epoch_t = time.time()
 
+        in_lr_warmup = (epoch < lr_warmup)
+
         for i, (inputs, targets) in enumerate(train_loader):
             # NOTE: gradual warmup should be at each iteration instead of epoch.
-            if epoch < lr_warmup:
+            if in_lr_warmup:
                 scheduler.step(epoch + (i / len(train_loader)))
 
             step_t = time.time()
