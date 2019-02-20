@@ -116,6 +116,7 @@ def main(args):
     # Init the model.
     dtype = torch.float16
     input_size = data_shape[0][2]
+
     model = ResNet50(num_classes, input_size)
     model.to(device, dtype)
 
@@ -148,6 +149,8 @@ def main(args):
     # Optimization strategy.
     total_batch_size = args.batch * world_size
     initial_lr = 0.1 / 256 * total_batch_size
+    if dtype is torch.float16:
+        initial_lr /= 2
     optimizer = torch.optim.SGD(model.parameters(), lr=initial_lr, momentum=0.9, weight_decay=0.0001)
 
     # Distributed learning.
